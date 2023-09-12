@@ -1,0 +1,4 @@
+IMAGE_FOLDER: 
+  D:/mnt/data_source/cropped-apple-bb/images/
+GROUND_TRUTH_PATH: 
+  D:/mnt/data_source/cropped-apple-bb/ground-truth/ground_truth.json
