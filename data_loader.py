@@ -1,6 +1,7 @@
 import os
 import cv2
 import json
+import torch
 import numpy as np
 from utils import smoothing_mask, total_size
 from PIL import Image
@@ -65,18 +66,21 @@ class AppleDataset(Dataset):
         
         for box, label in zip(boxes, labels):
             mask, area = smoothing_mask(mask, area, box, sum_size/num_obj, label)
-            mask = cv2.resize(mask, (height, width))
-            area = cv2.resize(area, (height, width))
-                              
         
-        image = np.array(image)
-        import pdb; pdb.set_trace()
+        mask, area = self.annotation_transform(mask, area, height, width)
+                              
+        image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()
+        mask = torch.from_numpy(mask.astype(np.float32))
+        area = torch.from_numpy(area.astype(np.float32))
+        sum_size = torch.from_numpy(np.array([sum_size]).astype(np.float32))
+        
         return image, mask, area, sum_size
     
     
-    def annotation_transform(self, mask, width, height):
-        return cv2.resize(mask, (height, width))
-    
+    def annotation_transform(self, mask, area, height, width):
+        resized_mask = cv2.resize(mask, (width, height))
+        resized_area = cv2.resize(area, (width, height))
+        return resized_mask, resized_area
     
     def load_data(self):
         # read ground truth json file
@@ -130,6 +134,3 @@ if __name__ == '__main__':
     apple_loader = DataLoader(appledata, batch_size=32, shuffle=False)
     for batch in apple_loader:
         images, masks, areas, total_sizes = batch
-        
-    import pdb; pdb.set_trace()
-    print('hello world')
