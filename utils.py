@@ -81,7 +81,7 @@ def l1_distance(pt1, pt2):
 def smoothing_mask(mask, area, box, size, label):
     H, W = mask.shape[:2]
     if type(size) is tuple:
-        size = size[0] *  size[1]
+        size = size[0] * size[1]
     
     x1, y1, x2, y2, x3, y3, x4, y4 = box
     
