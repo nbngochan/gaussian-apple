@@ -3,7 +3,7 @@ import cv2
 import json
 import torch
 import numpy as np
-from utils import smoothing_mask, total_size
+from utils.util import smoothing_mask, total_size
 from PIL import Image
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
@@ -48,8 +48,8 @@ class AppleDataset(Dataset):
         height, width = image.size
         
         
-        if self.transform:
-            image = self.transform(image)
+        # if self.transform:
+        #     image = self.transform(image)
         
         # target_size = self.img_size[0], self.img_size[1]
         mask = np.zeros((self.img_size[0], self.img_size[1], self.num_classes), dtype=np.float32)
@@ -67,20 +67,22 @@ class AppleDataset(Dataset):
         for box, label in zip(boxes, labels):
             mask, area = smoothing_mask(mask, area, box, sum_size/num_obj, label)
         
-        mask, area = self.annotation_transform(mask, area, height, width)
+        image, mask, area = self.annotation_transform(np.array(image), mask, area, self.img_size[1], self.img_size[1])
                               
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()
         mask = torch.from_numpy(mask.astype(np.float32))
         area = torch.from_numpy(area.astype(np.float32))
-        sum_size = torch.from_numpy(np.array([sum_size]).astype(np.float32))
+        sum_size = torch.from_numpy(np.array([sum_size], dtype=np.float32))
+        # import pdb; pdb.set_trace()
         
         return image, mask, area, sum_size
     
     
-    def annotation_transform(self, mask, area, height, width):
+    def annotation_transform(self, image, mask, area, height, width):
+        resize_img = cv2.resize(image, (width, height))
         resized_mask = cv2.resize(mask, (width, height))
         resized_area = cv2.resize(area, (width, height))
-        return resized_mask, resized_area
+        return resize_img, resized_mask, resized_area
     
     def load_data(self):
         # read ground truth json file
@@ -129,7 +131,8 @@ class AppleDataset(Dataset):
     
 if __name__ == '__main__':
     appledata = AppleDataset(mode='train',
-                             data_path='D:/mnt/data_source/cropped-apple-bb/')
+                             data_path='D:/mnt/data_source/cropped-apple-bb/',
+                             img_size=(224, 224))
     
     apple_loader = DataLoader(appledata, batch_size=32, shuffle=False)
     for batch in apple_loader:

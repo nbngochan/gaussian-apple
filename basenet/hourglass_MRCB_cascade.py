@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from MRCB import Multi_Rotation_Convolution_Block_light
+from basenet.MRCB import Multi_Rotation_Convolution_Block_light
 
 def norm(out_dim, groups=0):
     if groups == 0:
@@ -265,7 +265,7 @@ class exkp(nn.Module):
 
 
         self.relu = nn.ReLU(inplace=True)
-        self.upsampling = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
+        self.upsampling = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         
 
     def forward(self, image):
