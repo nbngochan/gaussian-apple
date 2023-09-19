@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from basenet.MRCB import Multi_Rotation_Convolution_Block_light
+from MRCB import Multi_Rotation_Convolution_Block_light
 
 def norm(out_dim, groups=0):
     if groups == 0:
@@ -283,37 +283,47 @@ class exkp(nn.Module):
                 inter = self.inters_[ind](inter) + self.cnvs_[ind](cnv)
                 inter = self.relu(inter)
                 inter = self.inters[ind](inter)
-                
+
         ##################################################################
         mrcbs = []
+        # features : 2
         
+        """
+        MAC (original)
+        """
         for ind, feature in enumerate(features):
             mrcb_ = self.mrcbs[ind]
             mrcb = mrcb_(feature)
             
             mrcbs.append(mrcb)
-            
+        
+        # mrcbs : 2
+        
+        """
+        Refinement of MAC
+        """
+        
         for ind in range(self.cascade):
             mrcb_ = self.mrcbs[self.nstack+ind]
-            connect_ = self.connects_[ind]
-            
-            prev_mrcb = connect_(mrcbs[-1])
+            connect_ = self.connects_[ind] # 1x1 conv
+            prev_mrcb = connect_(mrcbs[-1]) # 
             
             mrcb = mrcb_(features[-1] + prev_mrcb)
             
             mrcbs.append(mrcb)
-            
+        # mrcb : 4
         heads = []
         for ind, mrbc in enumerate(mrcbs):
-            layer = self.__getattr__('hm_c')[ind]
-            
-            head = layer(mrbc)
-            
+            layer = self.__getattr__('hm_c')[ind] #Conv2d(256, 15, kernel_size=(1, 1), stride=(1, 1))
+            head = layer(mrbc) #2 x 15 x 128 x 128
             heads.append(head)
-
+        # heads : 4
+        
+        # import pdb; pdb.set_trace()
         heads = [self.upsampling(o) for o in heads]
         heads = [o.permute(0,2,3,1) for o in heads]
-
+        # print(len(heads))
+        # output heads : four angles outputs's feature map 0, 30, 45, 60
         return heads
 
     
@@ -335,7 +345,7 @@ def make_hg_layer(kernel, dim0, dim1, mod, layer=convolution, **kwargs):
 
 
 class HourglassNet(exkp):
-    def __init__(self, heads, num_stacks=2, cascade=2):
+    def __init__(self, heads, num_stacks=2, cascade=3):
         n       = 5
         dims    = [256, 256, 384, 384, 384, 512]
         modules = [2, 2, 2, 2, 2, 4]
@@ -358,10 +368,9 @@ def StackedHourGlass(num_classes, num_stacks=2, cascade=2):
     return model
 
 if __name__ == '__main__':
-    import torch
     
     model = StackedHourGlass(15, cascade=2).cuda()
-    
+    # import pdb; pdb.set_trace()
     output = model(torch.randn(2, 3, 512, 512).cuda())
     print(output[-1].shape)
     
