@@ -65,7 +65,7 @@ def colormap(density_map, image):
     return overlay
 
 diameter = 50
-kernel_map = gaussian((diameter, diameter), 5)
+kernel_map = gaussian((diameter, diameter), 10)
 kernel_poly = np.array([[0, 0], [0, diameter], [diameter, diameter], [diameter, 0]], np.float32)  # source quadrilateral coordinates
 
 def l2_distance(pt1, pt2):
