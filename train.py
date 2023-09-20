@@ -20,7 +20,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Training Object Detection Module')
     parser.add_argument('--root', type=str, help='Root directory of dataset')
     parser.add_argument('--dataset', type=str, default='apple_2', help='Training dataset')
-    parser.add_argument('--input_size', type=tuple, default=(224, 224), help='Input size')
+    parser.add_argument('--input_size', type=tuple, default=(512, 512), help='Input size')
     parser.add_argument('--workers', default=4, type=int, help='Number of workers')
     parser.add_argument('--batch_size', type=int, default=4, help='Training batch size')
     parser.add_argument('--backbone', type=str, default='hourglass104_MRCB_cascade', 
@@ -42,6 +42,10 @@ def get_args():
     
 def main():
     args = get_args()
+    
+    if type(args.input_size) == int:
+        args.input_size = (args.input_size, args.input_size)
+        
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     NUM_CLASSES = {'apple_2': 2, 'apple_6': 6}
@@ -55,8 +59,8 @@ def main():
     # define loss function (criterion) and optimizer
     criterion = SWM_FPEM_Loss(num_classes=num_classes, alpha=args.alpha, neg_pos_ratio=0.3)
     
-    transform_train = ImageTransform()
-    transform_test = ImageTransform()
+    transform_train = ImageTransform(is_train=True)
+    transform_test = ImageTransform(is_train=False)
     
     train_dataset = AppleDataset('train', args.root, 
                                  args.input_size, transform=transform_train)
@@ -80,7 +84,9 @@ def main():
     
     best_loss = 1e10
     best_dist = 1e10
-
+    best_loss_checkpoint = None
+    best_dist_checkpoint = None
+    
     start = time.time()
     
     for epoch in range(0, args.epochs):
@@ -92,12 +98,18 @@ def main():
         
         if best_loss >= val_loss:
             best_loss = val_loss
-            save_checkpoint(model, optimizer, epoch, "best_loss", args.save_path)
+            if best_loss_checkpoint is not None:
+                # Delete the old best loss checkpoint
+                os.remove(best_loss_checkpoint)
+            
+            best_loss_checkpoint = save_checkpoint(model, optimizer, epoch, f'best_loss_epoch{epoch}_{val_loss:0.4f}', args.save_path)
 
         if best_dist >= val_dist:
             best_dist = val_dist
-            save_checkpoint(model, optimizer, epoch, "best_dist", args.save_path)
-
+            if best_dist_checkpoint is not None:
+                # Delete the old best distance checkpoint
+                os.remove(best_dist_checkpoint)
+            best_dist_checkpoint = save_checkpoint(model, optimizer, epoch, f'best_dist_epoch{epoch}_{val_dist:0.4f}', args.save_path)
         
         
 def train(train_loader, model, criterion, optimizer,
@@ -150,6 +162,10 @@ def train(train_loader, model, criterion, optimizer,
             train_log += "Time %.1f ms | Left %.1f min | " % (batch_time.avg * 1000, (args.train_iter - args.curr_iter) * batch_time.avg / 60)
             train_log += "Loss %.6f " % (losses.avg)
             print(train_log)
+            
+            # Append the log to a text file
+            with open('train_log.txt', 'a') as log_file:
+                log_file.write(train_log + '\n')
 
 def test(test_loader, model, criterion, device, epoch, args):
     losses = AverageMeter()
@@ -179,13 +195,21 @@ def test(test_loader, model, criterion, device, epoch, args):
         dist = torch.sqrt((y - outs)**2).mean()
     
         losses.update(loss.item())
-        distances.update(loss.item())
+        distances.update(dist.item())
     
     valid_log = "\n============== validation ==============\n"
     valid_log += "valid time : %.1f s | " % (time.time() - end)
     valid_log += "valid loss : %.6f | " % (losses.avg)
     valid_log += "valid dist : %.6f \n" % (distances.avg)
     print(valid_log)
+    
+    
+    # with open('test_log.txt', 'a') as log_file:
+    #     log_file.write(valid_log + '\n')
+        
+    # Append the log to a text file
+    with open('train_log.txt', 'a') as log_file:
+        log_file.write(valid_log + '\n')
     
     return losses.avg, distances.avg
 
@@ -197,7 +221,7 @@ def save_checkpoint(model, optimizer, epoch, name, save_path):
     }
     model_path = os.path.join(save_path, f'{name}.pt')
     torch.save(dict_state, model_path)
-    
+    return model_path
     
 class AverageMeter():
     """Computes and stores the avarage and current value"""
