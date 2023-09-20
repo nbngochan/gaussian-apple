@@ -59,22 +59,31 @@ class AppleDataset(Dataset):
         boxes = target[:, :8] if target.shape[0]!=0 else None
         labels = target[:, 8] if target.shape[0]!=0 else None
         
-        labels = labels.astype(np.int32)
+        # Apply transform on `image`, `boxes`, `labels`
+        # image, boxes, labels = self.transform(image, boxes, labels)
         
-        num_obj = len(boxes) if boxes is not None else 1
-        sum_size = total_size(boxes)
+        # Recompute the coordinate when image size changes
+        if boxes is not None:
+            target_h, target_w = self.img_size[0], self.img_size[1]
+            new_wh = np.array([target_w / width, target_h / height]) # rescaling factor
+            boxes = boxes * np.tile(new_wh, 4)
+            
+            labels = labels.astype(np.int32)
+            
+            num_obj = len(boxes) if boxes is not None else 1
+            sum_size = total_size(boxes)
+            
+            for box, label in zip(boxes, labels):
+                mask, area = smoothing_mask(mask, area, box, sum_size/num_obj, label)
         
-        for box, label in zip(boxes, labels):
-            mask, area = smoothing_mask(mask, area, box, sum_size/num_obj, label)
-        
+
         image, mask, area = self.annotation_transform(np.array(image), mask, area, self.img_size[1], self.img_size[1])
-                              
+                         
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()
         mask = torch.from_numpy(mask.astype(np.float32))
         area = torch.from_numpy(area.astype(np.float32))
         sum_size = torch.from_numpy(np.array([sum_size], dtype=np.float32))
-        # import pdb; pdb.set_trace()
-        
+           
         return image, mask, area, sum_size
     
     
@@ -131,9 +140,9 @@ class AppleDataset(Dataset):
     
 if __name__ == '__main__':
     appledata = AppleDataset(mode='train',
-                             data_path='D:/mnt/data_source/cropped-apple-bb/',
-                             img_size=(224, 224))
+                             data_path='/root/data/apple/cropped-apple-bb/',
+                             img_size=(512, 512))
     
-    apple_loader = DataLoader(appledata, batch_size=32, shuffle=False)
+    apple_loader = DataLoader(appledata, batch_size=32, shuffle=True)
     for batch in apple_loader:
         images, masks, areas, total_sizes = batch
