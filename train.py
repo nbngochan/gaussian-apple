@@ -20,7 +20,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Training Object Detection Module')
     parser.add_argument('--root', type=str, help='Root directory of dataset')
     parser.add_argument('--dataset', type=str, default='apple_2', help='Training dataset')
-    parser.add_argument('--input_size', type=tuple, default=(512, 512), help='Input size')
+    parser.add_argument('--input_size', type=int, default=512, help='Input size')
     parser.add_argument('--workers', default=4, type=int, help='Number of workers')
     parser.add_argument('--batch_size', type=int, default=4, help='Training batch size')
     parser.add_argument('--backbone', type=str, default='hourglass104_MRCB_cascade', 
@@ -45,7 +45,7 @@ def main():
     
     if type(args.input_size) == int:
         args.input_size = (args.input_size, args.input_size)
-        
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     NUM_CLASSES = {'apple_2': 2, 'apple_6': 6}
@@ -59,8 +59,8 @@ def main():
     # define loss function (criterion) and optimizer
     criterion = SWM_FPEM_Loss(num_classes=num_classes, alpha=args.alpha, neg_pos_ratio=0.3)
     
-    transform_train = ImageTransform(is_train=True)
-    transform_test = ImageTransform(is_train=False)
+    transform_train = ImageTransform()
+    transform_test = ImageTransform()
     
     train_dataset = AppleDataset('train', args.root, 
                                  args.input_size, transform=transform_train)
