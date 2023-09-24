@@ -4,6 +4,7 @@ import os
 import json
 import PIL.Image as Image
 
+APPLE_CLASSES = ['defective', 'normal']
 
 def gaussian(shape, sigma=10):
     """
